@@ -13,7 +13,7 @@ import { isSudoPasswordRequired } from "@/mitm/dns/dnsConfig";
 
 // GET - Check MITM status
 export async function GET(request) {
-  const authError = await requireCliToolsAuth(request);
+  const authError = await requireCliToolsAuth(request, { alwaysRequireAuth: true });
   if (authError) return authError;
 
   try {
@@ -43,7 +43,7 @@ export async function GET(request) {
 
 // POST - Start MITM proxy
 export async function POST(request) {
-  const authError = await requireCliToolsAuth(request);
+  const authError = await requireCliToolsAuth(request, { alwaysRequireAuth: true });
   if (authError) return authError;
 
   let rawBody;
@@ -107,7 +107,7 @@ export async function POST(request) {
 
 // DELETE - Stop MITM proxy
 export async function DELETE(request) {
-  const authError = await requireCliToolsAuth(request);
+  const authError = await requireCliToolsAuth(request, { alwaysRequireAuth: true });
   if (authError) return authError;
 
   let rawBody;
