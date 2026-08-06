@@ -121,10 +121,24 @@ export function encrypt(plaintext: string | null | undefined): string | null | u
 
   const key = getStaticKey();
   if (!key) {
-    console.warn(
-      "[Encryption] STORAGE_ENCRYPTION_KEY not set. Storing plaintext (passthrough mode)."
+    // Fail closed. Upstream returned the plaintext here, so an operator who
+    // never set STORAGE_ENCRYPTION_KEY — the default — silently stored every
+    // provider API key and OAuth refresh token unencrypted in SQLite. A warning
+    // on a code path that still succeeds is not a control.
+    //
+    // decrypt() is deliberately left alone: databases written in the old
+    // passthrough mode must stay readable, and reading is not what leaks.
+    if (process.env.STORAGE_ENCRYPTION_OPTOUT === "1") {
+      console.warn(
+        "[Encryption] STORAGE_ENCRYPTION_OPTOUT=1 — storing plaintext. Credentials in the database are readable by any process that can open the file."
+      );
+      return plaintext;
+    }
+    throw new Error(
+      "[Encryption] Refusing to store a credential in plaintext: STORAGE_ENCRYPTION_KEY is not set. " +
+        "Generate one with `openssl rand -base64 32` and set it before adding credentials, " +
+        "or set STORAGE_ENCRYPTION_OPTOUT=1 to accept plaintext storage."
     );
-    return plaintext; // passthrough mode
   }
 
   // Already encrypted — don't double-encrypt
