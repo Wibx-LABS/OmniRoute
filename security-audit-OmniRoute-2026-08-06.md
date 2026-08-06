@@ -192,7 +192,8 @@ traps.
 
 ## Fork hardening applied in `Wibx-LABS/OmniRoute`
 
-Findings 1 and 2 are **fixed in this tree**. Both are offered upstream.
+Findings 1 and 2 are **fixed in this tree**. Both stay fork-local: we do not open pull requests,
+issues, or advisories against the upstream repository.
 
 | Finding | Commit | Change |
 | --- | --- | --- |
