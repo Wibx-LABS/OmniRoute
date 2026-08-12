@@ -1,0 +1,35 @@
+# OmniRoute — Wibx-LABS deployment override
+#
+# Copy next to the fork's docker-compose.prod.yml and run:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml up -d --build
+#
+# Two corrections to upstream's prod compose. Both are security-relevant; see
+# wibx/README.md.
+
+services:
+  omniroute-prod:
+    build:
+      # Upstream's prod compose targets `runner-cli`, not `runner-base`. That stage
+      # apt-installs `docker.io` + `docker-compose` into the container and globally
+      # npm-installs @openai/codex, @anthropic-ai/claude-code, droid and
+      # `openclaw@latest` — an unpinned tag resolved fresh at every build.
+      #
+      # A green-only gateway routes API calls. It has no use for a Docker CLI or for
+      # four coding agents living inside it. `runner-base` is the same runtime without
+      # any of that, and (being upstream of `runner-web`) still carries no Playwright
+      # or Chromium, so the web-cookie providers cannot run even by accident.
+      target: runner-base
+
+    # Upstream publishes with no bind address, i.e. 0.0.0.0 — the dashboard, the API
+    # and the live-WS port land on every interface the host has. `!override` replaces
+    # the list rather than appending to it (Compose merges `ports` by default, which
+    # would leave the wide bindings in place).
+    #
+    # Loopback only, as below. To reach it from another machine, bind the API port
+    # ONLY to a private-network address and leave the dashboard on loopback — the
+    # dashboard carries the privileged routes; reach it through an SSH tunnel.
+    # Never expose either to the public internet.
+    ports: !override
+      - "127.0.0.1:${PROD_DASHBOARD_PORT:-20130}:${DASHBOARD_PORT:-20128}"
+      - "127.0.0.1:${PROD_API_PORT:-20131}:${API_PORT:-20129}"
+      - "127.0.0.1:${PROD_LIVE_WS_PORT:-20132}:${LIVE_WS_PORT:-20132}"
