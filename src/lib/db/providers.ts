@@ -22,6 +22,7 @@ import { bumpProxyConfigGeneration } from "./settings";
 import { webSessionCredentialKey, parseProviderSpecificData } from "./webSessionDedup";
 import { pickCodexConnectionForUser } from "@/lib/oauth/utils/codexConnectionSelection";
 import { reconcileCodexUsageHistory } from "./providers/usageIdentityReconciliation";
+import { isProviderBlockedByPolicy, providerPolicyReason } from "@/shared/utils/providerClass";
 import {
   withNullableMaxConcurrent,
   withNullableQuotaWindowThresholds,
@@ -283,6 +284,18 @@ function findExistingCookieConnection(
 }
 
 export async function createProviderConnection(data: JsonRecord) {
+  // Wibx-LABS fork-local: green-only policy, enforced where credentials are
+  // persisted rather than in each of the ~25 routes that reach this function
+  // (the codex / claude / kiro / cursor / trae / zed / cliproxy imports, bulk,
+  // bulk-web-session, command-code, and the generic OAuth handler). Guarding
+  // here is the difference between one check and twenty-five chances to miss
+  // one. Throwing rather than returning null: a caller that silently got no
+  // connection back would look like a failed import, not a refused one.
+  const requestedProvider = toStringOrNull(data.provider);
+  if (requestedProvider !== null && isProviderBlockedByPolicy(requestedProvider)) {
+    throw new Error(providerPolicyReason(requestedProvider));
+  }
+
   const db = getDbInstance() as unknown as DbLike;
   const now = new Date().toISOString();
   const normalizedProviderSpecificData = normalizeProviderSpecificData(

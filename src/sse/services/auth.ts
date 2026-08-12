@@ -66,6 +66,7 @@ import {
   NOAUTH_PROVIDERS,
   WEB_COOKIE_PROVIDERS,
 } from "@/shared/constants/providers";
+import { isProviderBlockedByPolicy } from "@/shared/utils/providerClass";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
 import {
   applySessionAffinityPin,
@@ -1016,6 +1017,14 @@ export async function getProviderCredentials(
     // No-auth providers (e.g. opencode) need no DB connection — return synthetic credentials
     // so the executor receives a valid credentials object without auth headers being added.
     const resolvedId = resolveProviderId(provider);
+
+    // Wibx-LABS fork-local: green-only policy on the routing path, not just the
+    // creation path. createProviderConnection refuses to store amber/red, but a
+    // connection created before that guard existed — or written straight into
+    // SQLite — would still route. Refusing here means the class cannot serve a
+    // request no matter how its credentials got there.
+    if (isProviderBlockedByPolicy(resolvedId)) return null;
+
     const providerMaps: Record<string, { noAuth?: boolean } | undefined>[] = [
       NOAUTH_PROVIDERS as Record<string, { noAuth?: boolean } | undefined>,
       WEB_COOKIE_PROVIDERS as Record<string, { noAuth?: boolean } | undefined>,
