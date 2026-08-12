@@ -101,25 +101,37 @@ describe("encryption module", () => {
     });
   });
 
-  describe("passthrough mode: no STORAGE_ENCRYPTION_KEY set → plaintext stored", () => {
-    it("should return plaintext when encryption key is not set", async () => {
-      // No STORAGE_ENCRYPTION_KEY set
+  // Wibx-LABS fork-local: upstream asserted passthrough here. Our fail-closed
+  // patch inverted it on purpose — an operator who never set
+  // STORAGE_ENCRYPTION_KEY (the default) was silently storing every provider key
+  // and OAuth refresh token as plaintext. Mirrors tests/unit/db-encryption.test.ts.
+  describe("no STORAGE_ENCRYPTION_KEY set → encrypt refuses, decrypt still reads", () => {
+    it("should refuse to store plaintext when the encryption key is not set", async () => {
       vi.resetModules();
+      delete process.env.STORAGE_ENCRYPTION_OPTOUT;
 
       const { encrypt, decrypt, isEncryptionEnabled } = await import("@/lib/db/encryption");
 
       expect(isEncryptionEnabled()).toBe(false);
+      expect(() => encrypt("my-api-key")).toThrow(/STORAGE_ENCRYPTION_KEY is not set/);
 
-      const plaintext = "my-api-key";
-      const encrypted = encrypt(plaintext);
-
-      expect(encrypted).toBe(plaintext);
-
-      const decrypted = decrypt(plaintext);
-      expect(decrypted).toBe(plaintext);
+      // decrypt() is deliberately untouched: databases written in the old
+      // passthrough mode must stay readable, and reading is not what leaks.
+      expect(decrypt("my-api-key")).toBe("my-api-key");
     });
 
-    it("should handle null and undefined in passthrough mode", async () => {
+    it("should restore passthrough under STORAGE_ENCRYPTION_OPTOUT=1", async () => {
+      vi.resetModules();
+      process.env.STORAGE_ENCRYPTION_OPTOUT = "1";
+      try {
+        const { encrypt } = await import("@/lib/db/encryption");
+        expect(encrypt("my-api-key")).toBe("my-api-key");
+      } finally {
+        delete process.env.STORAGE_ENCRYPTION_OPTOUT;
+      }
+    });
+
+    it("should pass falsy inputs through, before the guard", async () => {
       vi.resetModules();
 
       const { encrypt, decrypt } = await import("@/lib/db/encryption");
