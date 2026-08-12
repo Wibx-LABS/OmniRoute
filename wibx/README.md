@@ -143,6 +143,13 @@ Security-critical. Not preferences.
   detection. Turning one on is a deliberate choice to impersonate a client.
 - **Never connect a first-party account anything depends on.** If the amber
   class is ever enabled, use an account whose loss is survivable.
+- **Set `REQUIRE_API_KEY=true`.** Upstream defaults it to `false`, which leaves
+  every `/v1/*` route answering callers that present no key at all — measured on
+  a real instance, a bogus Bearer token reached model resolution rather than
+  being rejected. This is the flag the whole endpoint model rests on: colleagues
+  get a URL and a key, and the key is what bounds them. Without it, publishing
+  the API port anywhere hands everyone who can reach it a way to spend the
+  provider keys.
 - **Never expose this to the public internet.** No tunnel, no funnel, no
   reverse proxy with a public hostname.
 

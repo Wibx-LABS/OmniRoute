@@ -97,6 +97,28 @@ case "$code" in
   *)       info "unauthenticated /api/settings -> $code (check manually)" ;;
 esac
 
+# The management routes above are a different gate from the PROXY routes below.
+# REQUIRE_API_KEY defaults to false upstream, which leaves /v1/* open to anyone
+# who can reach the port — the exact thing the endpoint hand-out model relies on
+# being closed. Check the flag AND the behaviour: a flag can be set and still not
+# take effect.
+req=$(docker exec "$CONTAINER" printenv REQUIRE_API_KEY 2>/dev/null)
+if [ "$req" = "true" ]; then
+  pass "REQUIRE_API_KEY=true"
+else
+  bad "REQUIRE_API_KEY is '${req:-unset}' — /v1/* answers callers with no key at all"
+fi
+
+proxy_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+  -X POST "http://127.0.0.1:${API_PORT}/v1/chat/completions" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"probe/probe","messages":[{"role":"user","content":"probe"}]}' 2>/dev/null)
+case "$proxy_code" in
+  401|403) pass "unauthenticated POST /v1/chat/completions -> $proxy_code" ;;
+  000)     info "API port not reachable on 127.0.0.1:${API_PORT} (still starting?)" ;;
+  *)       bad  "unauthenticated POST /v1/chat/completions -> $proxy_code; the proxy is NOT requiring a key" ;;
+esac
+
 # ── 4. Secrets ───────────────────────────────────────────────────────────────
 echo
 echo "[4] Secrets"
