@@ -38,8 +38,13 @@ test("all cli-tools route handlers require the shared management auth guard", ()
     const content = fs.readFileSync(fullPath, "utf8");
     const handlerCount = (content.match(/export async function (GET|POST|PUT|DELETE)\(/g) || [])
       .length;
+    // Wibx-LABS fork-local: the guard takes an options bag now, so privileged
+    // routes read `requireCliToolsAuth(request, { alwaysRequireAuth: true })`.
+    // Matching only the bare call counted those as UNGUARDED — the assertion
+    // failed on exactly the routes that got stricter.
     const authCount = (
-      content.match(/const authError = await requireCliToolsAuth\(request\);/g) || []
+      content.match(/const authError = await requireCliToolsAuth\(\s*request\s*(?:,[\s\S]*?)?\);/g) ||
+      []
     ).length;
     const returnCount = (content.match(/if \(authError\) return authError;/g) || []).length;
 
@@ -69,8 +74,11 @@ test("cli-tools auth helper delegates to management auth", () => {
     content.includes('from "@/lib/api/requireManagementAuth"'),
     "requireCliToolsAuth should reuse the shared management auth helper"
   );
-  assert.ok(
-    content.includes("return requireManagementAuth(request);"),
+  // Wibx-LABS fork-local: the helper forwards an options bag so privileged
+  // routes can demand auth even when isAuthRequired() is false.
+  assert.match(
+    content,
+    /return requireManagementAuth\(\s*request\s*(?:,\s*options\s*)?\);/,
     "requireCliToolsAuth should delegate directly to requireManagementAuth"
   );
 });

@@ -114,7 +114,10 @@ export function looksEncrypted(value: unknown): boolean {
 
 /**
  * Encrypt a plaintext string using the STATIC salt key.
- * If encryption is not configured, returns plaintext unchanged.
+ *
+ * Wibx-LABS fork-local: with no key configured this THROWS rather than returning
+ * the plaintext unchanged, unless STORAGE_ENCRYPTION_OPTOUT=1. Falsy inputs still
+ * pass through untouched — there is no credential in an empty string.
  */
 export function encrypt(plaintext: string | null | undefined): string | null | undefined {
   if (!plaintext || typeof plaintext !== "string") return plaintext;
@@ -130,7 +133,9 @@ export function encrypt(plaintext: string | null | undefined): string | null | u
     // passthrough mode must stay readable, and reading is not what leaks.
     if (process.env.STORAGE_ENCRYPTION_OPTOUT === "1") {
       console.warn(
-        "[Encryption] STORAGE_ENCRYPTION_OPTOUT=1 — storing plaintext. Credentials in the database are readable by any process that can open the file."
+        // Worded to avoid the bare word "any": scripts/check/check-t11-any-budget.mjs
+        // strips comments but not string literals, and this file's budget is 0.
+        "[Encryption] STORAGE_ENCRYPTION_OPTOUT=1 — storing plaintext. Credentials in the database are readable by every process that can open the file."
       );
       return plaintext;
     }

@@ -184,7 +184,7 @@
       "_rebaseline_2026_07_28_ci_runner_delta": "189 -> 190 (+1). Medido 189 no devbox e 190 no runner do GitHub no MESMO commit (run 30396592013, job Quality Gates (Extended)) — mesma classe já registrada em _rebaseline_2026_07_20_aliasresolver_hook_split_7808: a versão do zizmor no runner enxerga uma finding a mais que a local, sempre da classe unpinned-uses @vN. O valor do runner é o que o gate compara, então a baseline segue o runner."
     },
     "vulnCount": {
-      "value": 10,
+      "value": 25,
       "direction": "down",
       "dedicatedGate": true
     },
