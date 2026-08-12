@@ -18,11 +18,22 @@ legal exposure and where the prompts go.
 |---|---|---|---|
 | 🟢 **API key** | Documented endpoint, key you signed up for. Groq, Gemini, DeepSeek, Mistral, SiliconFlow, Cerebras, Cloudflare, Vertex, Kimi, GLM, OpenRouter | None — this is the supported use | Provider's published data policy |
 | 🟡 **First-party subscription** | OAuth into a Claude / Codex / Copilot plan you pay for | **Real.** Requests carry a CLI user-agent and, with `CLI_COMPAT_*` on, reordered headers matching the official client signature | Your own account |
-| 🔴 **Web session** | 35 `*-web` executors driving a logged-in browser session from DevTools cookies | **High.** TLS-fingerprint spoofing, anti-bot challenge solving, replayed thinking signatures. Several are labeled `Unofficial/Experimental` in their own source | Your own account, via a path the provider did not sanction |
+| 🔴 **Web session** | 31 `*-web` executors driving a logged-in browser session from DevTools cookies | **High.** TLS-fingerprint spoofing, anti-bot challenge solving, replayed thinking signatures. Several are labeled `Unofficial/Experimental` in their own source | Your own account, via a path the provider did not sanction |
 
 Green is the whole approved surface, and a genuinely useful one — those free
 tiers are real and documented. What it will not do is produce the README's
 ~1.53B tokens/month; that number needs amber and red.
+
+**Amber and red are refused in code**
+([#5](https://github.com/Wibx-LABS/OmniRoute/pull/5)), not left to nobody
+clicking them. Connecting one fails at the point credentials are persisted, and
+an already-stored connection cannot route. Amber has an escape hatch —
+`OMNIROUTE_ALLOW_SUBSCRIPTION`, because the decision was "revisit later". Red has
+none, because the decision was "never".
+
+This matters most for whoever runs an instance that is not theirs to set policy
+for: the ban lands on the account whose credentials were connected, so the
+control belongs somewhere they cannot un-click it.
 
 ### Two risks, routinely conflated
 
