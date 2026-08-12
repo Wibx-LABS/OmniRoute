@@ -183,16 +183,33 @@ echo "[7] Amber / red providers"
 
 if docker exec "$CONTAINER" sh -c \
      'grep -rl OMNIROUTE_ALLOW_SUBSCRIPTION .build 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
-  pass "green-only policy guard present in the deployed build"
+  pass "in-code amber/red guard present in the deployed build"
 else
-  bad "OMNIROUTE_ALLOW_SUBSCRIPTION not found in the image — built from an UNPATCHED checkout (needs OmniRoute#5)"
+  # Informational, not a FAIL: the in-code amber/red guard is PARKED. Enforcing it
+  # at the credential-write and routing paths broke 85 test files whose fixtures
+  # are built on amber providers, so it was never merged. A permanent red on every
+  # clean install, pointing at a PR that is not coming, is how people learn to
+  # ignore this script — and two of its checks silently passed for weeks.
+  #
+  # What holds without it: red cannot run at all (no browser binary, see [1]), and
+  # amber takes someone deliberately connecting a subscription account in the
+  # dashboard, where the ban lands on that account.
+  info "no in-code amber/red guard (parked: it broke 85 test fixtures). Red cannot"
+  info "launch a browser; amber is a deliberate dashboard action, and the ban lands"
+  info "on whichever account is connected."
 fi
 
 sub=$(docker exec "$CONTAINER" printenv OMNIROUTE_ALLOW_SUBSCRIPTION 2>/dev/null)
 if [ -n "$sub" ]; then
   bad "OMNIROUTE_ALLOW_SUBSCRIPTION set — first-party subscription providers are OPEN: $sub"
+elif docker exec "$CONTAINER" sh -c \
+       'grep -rl OMNIROUTE_ALLOW_SUBSCRIPTION .build 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
+  pass "OMNIROUTE_ALLOW_SUBSCRIPTION unset (amber blocked in code; red has no hatch)"
 else
-  pass "OMNIROUTE_ALLOW_SUBSCRIPTION unset (amber blocked; red has no hatch)"
+  # Saying "amber blocked" with no guard in the build would be a false
+  # reassurance: the variable gates nothing on its own.
+  info "OMNIROUTE_ALLOW_SUBSCRIPTION unset, but with no guard in the build it blocks"
+  info "nothing — amber is gated by nobody connecting one, not by this variable."
 fi
 
 echo
