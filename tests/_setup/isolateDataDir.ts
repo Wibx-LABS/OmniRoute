@@ -50,3 +50,18 @@ process.env.OMNIROUTE_SKIP_SYSTEM_TRUST = "1";
 // DNS-write guard: the suite must NEVER mutate /etc/hosts. Tests that exercise
 // the real MITM path call addDNSEntries(); this env var makes it a no-op.
 process.env.OMNIROUTE_SKIP_DNS_WRITE = "1";
+
+// Wibx-LABS fork-local. Our encrypt() fails closed when STORAGE_ENCRYPTION_KEY is
+// unset, which is right in production and wrong for a suite that stores hundreds
+// of throwaway credentials with no key configured — it broke the API-key store,
+// the Obsidian per-key config and the embed proxy tests, none of which are about
+// encryption at all.
+//
+// Opting out rather than setting a key on purpose: the opt-out restores exactly
+// the upstream passthrough behaviour these tests were written against, so nothing
+// that passed before changes. Setting a real key would switch encryption ON for
+// the whole suite and silently alter what every stored value looks like.
+//
+// The guard itself is covered by tests/unit/db-encryption.test.ts, which clears
+// this variable before asserting the throw.
+process.env.STORAGE_ENCRYPTION_OPTOUT = "1";

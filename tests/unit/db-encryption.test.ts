@@ -29,17 +29,51 @@ test.after(() => {
   }
 });
 
-test("encryption stays in passthrough mode when no storage key is configured", async () => {
+// Wibx-LABS fork-local: upstream's version of this test asserted that encrypt()
+// stayed in passthrough mode with no key configured. Our fail-closed patch
+// deliberately inverted that — an operator who never set STORAGE_ENCRYPTION_KEY
+// (the default) was silently storing every provider key and OAuth refresh token
+// as plaintext. The test now pins the behaviour we actually want.
+test("encrypt refuses to store plaintext when no storage key is configured", async () => {
   delete process.env.STORAGE_ENCRYPTION_KEY;
+  delete process.env.STORAGE_ENCRYPTION_OPTOUT;
   const encryption = await importFresh("src/lib/db/encryption.ts");
 
   assert.equal(encryption.isEncryptionEnabled(), false);
-  assert.equal(encryption.encrypt("plain-text"), "plain-text");
-  assert.equal(encryption.decrypt("plain-text"), "plain-text");
+  assert.throws(() => encryption.encrypt("plain-text"), /STORAGE_ENCRYPTION_KEY is not set/);
+
+  // Falsy inputs return early, before the guard — there is no credential in an
+  // empty string, and callers rely on the passthrough.
   assert.equal(encryption.encrypt(""), "");
+  assert.equal(encryption.encrypt(null), null);
+  assert.equal(encryption.encrypt(undefined), undefined);
+
+  // decrypt() is deliberately untouched: databases written in the old passthrough
+  // mode must stay readable, and reading is not what leaks.
+  assert.equal(encryption.decrypt("plain-text"), "plain-text");
   assert.equal(encryption.decrypt(null), null);
   assert.equal(encryption.decrypt(undefined), undefined);
+
   assert.equal("validateEncryptionConfig" in encryption, false);
+});
+
+test("STORAGE_ENCRYPTION_OPTOUT=1 restores passthrough, loudly", async () => {
+  delete process.env.STORAGE_ENCRYPTION_KEY;
+  process.env.STORAGE_ENCRYPTION_OPTOUT = "1";
+  const encryption = await importFresh("src/lib/db/encryption.ts");
+
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => void warnings.push(args.join(" "));
+  try {
+    assert.equal(encryption.encrypt("plain-text"), "plain-text");
+  } finally {
+    console.warn = originalWarn;
+    delete process.env.STORAGE_ENCRYPTION_OPTOUT;
+  }
+
+  assert.equal(warnings.length, 1, "the escape hatch must not be silent");
+  assert.match(warnings[0], /STORAGE_ENCRYPTION_OPTOUT=1/);
 });
 
 test("encrypt/decrypt round-trip uses the expected serialized format", async () => {
