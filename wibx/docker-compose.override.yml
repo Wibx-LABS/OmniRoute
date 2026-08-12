@@ -16,8 +16,10 @@ services:
       #
       # A green-only gateway routes API calls. It has no use for a Docker CLI or for
       # four coding agents living inside it. `runner-base` is the same runtime without
-      # any of that, and (being upstream of `runner-web`) still carries no Playwright
-      # or Chromium, so the web-cookie providers cannot run even by accident.
+      # any of that. It does still carry the Playwright LIBRARY — Next's standalone
+      # tracing pulls it into every flavor — but not the browser binary that
+      # `runner-web` installs, so browserType.launch() throws and the web-cookie
+      # providers cannot drive a session. Verified on a real image 2026-08-12.
       target: runner-base
 
     # Upstream publishes with no bind address, i.e. 0.0.0.0 — the dashboard, the API

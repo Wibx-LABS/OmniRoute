@@ -69,9 +69,16 @@ to inherit:
   `docker-compose` into the container and globally npm-installs `@openai/codex`,
   `@anthropic-ai/claude-code`, `droid` and `openclaw@latest` — an unpinned tag
   re-resolved on every build. A gateway that routes API calls needs none of it.
-  `runner-base` is the same runtime without it and, being upstream of
-  `runner-web`, carries no Playwright or Chromium — so the web-cookie providers
-  cannot run even by accident. **Never build `runner-web`.**
+  `runner-base` is the same runtime without it. **Never build `runner-web`.**
+
+  One correction to a claim this document used to make: `runner-base` does *not*
+  exclude Playwright. Next's standalone tracing pulls `playwright` and
+  `playwright-core` (~25 MB) into every flavor, verified on a real image
+  2026-08-12. What `runner-web` adds is the **browser binary** (~800 MB), and
+  without it `browserType.launch()` throws — so a web-cookie provider still
+  cannot drive a session. The protection is real, but it is the missing browser,
+  not a missing library. `verify.sh` checks for the binary accordingly; testing
+  for the module was a permanent false FAIL.
 - **It publishes ports with no bind address**, i.e. `0.0.0.0` — dashboard, API
   and live-WS on every interface the host has. The override pins all three to
   loopback. Compose merges `ports` by default, so the override uses `!override`

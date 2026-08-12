@@ -29,10 +29,17 @@ else
   pass "no docker CLI in container (not runner-cli)"
 fi
 
-if docker exec "$CONTAINER" sh -c 'ls node_modules/playwright-core' >/dev/null 2>&1; then
-  bad "playwright present — this is runner-web; web-cookie providers can run"
+# playwright-core itself is ALWAYS present: Next's standalone tracing pulls it
+# into runner-base whatever the target, so testing for the module is a permanent
+# false FAIL. What separates runner-base from runner-web is the browser BINARY —
+# without it browserType.launch() throws and no web-cookie provider can drive a
+# session. Verified against a real runner-base image 2026-08-12.
+if docker exec "$CONTAINER" sh -c \
+     'ls ~/.cache/ms-playwright/*/chrome-linux*/chrome ~/.cache/ms-playwright/*/chrome-headless-shell-linux*/chrome-headless-shell' \
+     >/dev/null 2>&1; then
+  bad "a Playwright browser binary is installed — this is runner-web; web-cookie providers can run"
 else
-  pass "no playwright/chromium (web-cookie providers cannot run)"
+  pass "no Playwright browser binary (web-cookie providers cannot launch a session)"
 fi
 
 for pkg in @anthropic-ai/claude-code @openai/codex openclaw droid; do
@@ -57,31 +64,25 @@ fi
 # ── 2. Port bindings ─────────────────────────────────────────────────────────
 echo
 echo "[2] Port bindings — nothing may listen on 0.0.0.0"
-ports_json=$(docker inspect "$CONTAINER" --format '{{json .NetworkSettings.Ports}}' 2>/dev/null)
-if [ -z "$ports_json" ] || [ "$ports_json" = "null" ]; then
+# Previously parsed the JSON with an inline python3 heredoc whose escaped quotes
+# were mangled by the surrounding shell quoting: it raised SyntaxError, printed
+# nothing, and the emptiness was read as "no wide bindings" — a silent PASS on a
+# check that never ran. A Go template has no quoting to get wrong.
+bindings=$(docker inspect "$CONTAINER" \
+  --format '{{range $p, $conf := .NetworkSettings.Ports}}{{range $conf}}{{.HostIp}} {{.HostPort}} {{$p}}
+{{end}}{{end}}' 2>/dev/null)
+
+if [ -z "$bindings" ]; then
   bad "could not read port bindings for $CONTAINER"
 else
-  wide=$(printf '%s' "$ports_json" | python3 -c '
-import json,sys
-d=json.load(sys.stdin) or {}
-out=[]
-for port, binds in d.items():
-    for b in (binds or []):
-        ip=b.get("HostIp","")
-        if ip in ("","0.0.0.0","::"):
-            out.append(f"{port} -> {ip or \"0.0.0.0\"}:{b.get(\"HostPort\")}")
-print("\n".join(out))')
+  wide=$(printf '%s\n' "$bindings" | awk 'NF && ($1 == "" || $1 == "0.0.0.0" || $1 == "::")')
   if [ -n "$wide" ]; then
     bad "published on all interfaces:"
     printf '%s\n' "$wide" | sed 's/^/          /'
   else
     pass "all published ports bound to a specific host IP"
   fi
-  printf '%s' "$ports_json" | python3 -c '
-import json,sys
-for port, binds in (json.load(sys.stdin) or {}).items():
-    for b in (binds or []):
-        print(f"        {b.get(\"HostIp\")}:{b.get(\"HostPort\")} -> {port}")'
+  printf '%s\n' "$bindings" | awk 'NF {printf "        %s:%s -> %s\n", $1, $2, $3}'
 fi
 
 # ── 3. Auth ──────────────────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ echo
 echo "[6] Keyless providers"
 
 if docker exec "$CONTAINER" sh -c \
-     'grep -rql OMNIROUTE_ALLOW_NOAUTH . 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
+     'grep -rl OMNIROUTE_ALLOW_NOAUTH .build 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
   pass "fail-closed no-auth guard present in the deployed build"
 else
   bad "OMNIROUTE_ALLOW_NOAUTH not found in the image — built from an UNPATCHED checkout (needs OmniRoute#3)"
@@ -159,7 +160,7 @@ echo
 echo "[7] Amber / red providers"
 
 if docker exec "$CONTAINER" sh -c \
-     'grep -rql OMNIROUTE_ALLOW_SUBSCRIPTION . 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
+     'grep -rl OMNIROUTE_ALLOW_SUBSCRIPTION .build 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
   pass "green-only policy guard present in the deployed build"
 else
   bad "OMNIROUTE_ALLOW_SUBSCRIPTION not found in the image — built from an UNPATCHED checkout (needs OmniRoute#5)"
