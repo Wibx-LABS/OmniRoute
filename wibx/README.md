@@ -150,7 +150,8 @@ coding agents), that no published port is bound to `0.0.0.0`, that
 unauthenticated `/api/settings` returns 401/403 rather than 200, that all four
 secrets are set and none is still `CHANGEME`, that no `CLI_COMPAT_*` or TLS
 interception is enabled, and that the keyless-provider guard is present in the
-deployed image with `OMNIROUTE_ALLOW_NOAUTH` unset.
+deployed image with `OMNIROUTE_ALLOW_NOAUTH` unset. Section `[7]` does the same
+for the amber/red guard and `OMNIROUTE_ALLOW_SUBSCRIPTION`.
 
 One rule it cannot check, because it lives in the database rather than the
 environment: that `requireLogin` is on. That stays a dashboard check.

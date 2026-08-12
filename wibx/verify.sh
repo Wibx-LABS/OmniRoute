@@ -152,6 +152,26 @@ else
   pass "OMNIROUTE_ALLOW_NOAUTH unset (every keyless provider blocked)"
 fi
 
+# ── 7. Amber / red providers ─────────────────────────────────────────────────
+# PR #5 refuses both classes in code. Check the guard shipped in this build, and
+# that the amber escape hatch is closed. Red has no hatch by design.
+echo
+echo "[7] Amber / red providers"
+
+if docker exec "$CONTAINER" sh -c \
+     'grep -rql OMNIROUTE_ALLOW_SUBSCRIPTION . 2>/dev/null | head -1 | grep -q .' 2>/dev/null; then
+  pass "green-only policy guard present in the deployed build"
+else
+  bad "OMNIROUTE_ALLOW_SUBSCRIPTION not found in the image — built from an UNPATCHED checkout (needs OmniRoute#5)"
+fi
+
+sub=$(docker exec "$CONTAINER" printenv OMNIROUTE_ALLOW_SUBSCRIPTION 2>/dev/null)
+if [ -n "$sub" ]; then
+  bad "OMNIROUTE_ALLOW_SUBSCRIPTION set — first-party subscription providers are OPEN: $sub"
+else
+  pass "OMNIROUTE_ALLOW_SUBSCRIPTION unset (amber blocked; red has no hatch)"
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
   printf '\033[32mAll deployment rules hold.\033[0m\n'
