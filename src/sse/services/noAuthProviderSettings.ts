@@ -11,8 +11,11 @@ export async function isNoAuthProviderBlockedBySettings(providerId: string): Pro
       "AUTH",
       `Could not read blocked provider settings for ${providerId}: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      } — treating it as blocked`
     );
-    return false;
+    // Wibx-LABS fork-local: fail closed. Upstream returned false here, so an
+    // unreadable settings DB let every no-auth provider through — the one moment
+    // we have least reason to trust the gate is the moment it opened.
+    return true;
   }
 }

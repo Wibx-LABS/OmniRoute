@@ -5,15 +5,61 @@ type NoAuthProviderEntry = { id: string; alias?: string };
 
 const noAuthProviderEntries = Object.values(NOAUTH_PROVIDERS) as NoAuthProviderEntry[];
 
+/**
+ * Wibx-LABS fork-local: providers the operator has deliberately opted into,
+ * from OMNIROUTE_ALLOW_NOAUTH (comma-separated ids or aliases).
+ *
+ * Read per call rather than cached at module load so tests and a restarted
+ * worker observe the current environment. The callers already hit the settings
+ * DB, so a split on a short string is not the cost here.
+ */
+function explicitlyAllowedNoAuthProviders(): Set<string> {
+  return new Set(
+    (process.env.OMNIROUTE_ALLOW_NOAUTH ?? "")
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+  );
+}
+
+/**
+ * Wibx-LABS fork-local: no-auth providers are blocked by DEFAULT.
+ *
+ * Upstream models this as an opt-out blocklist that is empty on a fresh install
+ * (`blockedProviders` is optional in settingsSchemas.ts), so a new deployment
+ * routes to every keyless provider on day one — each of which sees the prompt,
+ * and some of which are volunteer-run (aihorde) or reverse-engineered public
+ * endpoints (felo-web, chipotle). Wibx-LABS runs green-only: API-key providers
+ * are the approved surface.
+ *
+ * Inverting here rather than seeding the DB default is deliberate. A seeded
+ * default survives only until the first settings write from the dashboard; an
+ * environment-driven allowlist is immune to DB state, and denies keyless
+ * providers that upstream adds later without anyone editing this file.
+ *
+ * Enforcement is server-side (sse/services/auth.ts, the models routes). The
+ * dashboard renders blocked entries with a "Disabled" badge, so they stay
+ * visible and restorable rather than silently vanishing.
+ */
 export function normalizeBlockedProviderSet(blockedProviders: unknown): Set<string> {
   const entries = blockedProviders instanceof Set ? Array.from(blockedProviders) : blockedProviders;
-  return new Set(
+  const blockedProviderSet = new Set(
     Array.isArray(entries)
       ? entries.filter(
           (provider): provider is string => typeof provider === "string" && provider.length > 0
         )
       : []
   );
+
+  const allowed = explicitlyAllowedNoAuthProviders();
+  for (const provider of noAuthProviderEntries) {
+    const alias = typeof provider.alias === "string" ? provider.alias : null;
+    if (allowed.has(provider.id) || (alias !== null && allowed.has(alias))) continue;
+    blockedProviderSet.add(provider.id);
+    if (alias !== null) blockedProviderSet.add(alias);
+  }
+
+  return blockedProviderSet;
 }
 
 export function isProviderBlockedByIdOrAlias(
