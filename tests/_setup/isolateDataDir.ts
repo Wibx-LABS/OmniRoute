@@ -65,3 +65,27 @@ process.env.OMNIROUTE_SKIP_DNS_WRITE = "1";
 // The guard itself is covered by tests/unit/db-encryption.test.ts, which clears
 // this variable before asserting the throw.
 process.env.STORAGE_ENCRYPTION_OPTOUT = "1";
+
+// Wibx-LABS fork-local. Our fork blocks every no-auth (keyless) provider by
+// default — upstream ships them behind an empty blocklist, so a fresh install
+// answered `auto` by sending prompts to third parties nobody configured.
+//
+// The suite is written against the upstream default: catalog, model-discovery
+// and connection-selection tests all assert that keyless providers are visible
+// and selectable (#2798, #3047, #3061, #3611, #5183). Allowing them here
+// restores exactly that, so nothing that passed before changes, while production
+// keeps denying by default.
+//
+// The guard itself stays covered by tests/unit/security/noauth-fail-closed.ts,
+// which sets and clears this variable per case.
+process.env.OMNIROUTE_ALLOW_NOAUTH = [
+  "opencode", "oc",
+  "duckduckgo-web", "ddgw",
+  "felo-web", "felo",
+  "theoldllm", "tllm",
+  "chipotle", "pepper",
+  "veoaifree-web", "veo-free",
+  "mimocode", "mcode",
+  "auggie", "aug",
+  "aihorde", "horde",
+].join(",");

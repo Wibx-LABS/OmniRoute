@@ -33,6 +33,17 @@ permissions:
 jobs:
   prepare:
     name: Resolve Docker release metadata
+    # Wibx-LABS fork-local: upstream only. Same guard style as build-fork.yml.
+    #
+    # Two reasons, and the second is not about convenience. The fork has no
+    # DOCKERHUB_* secrets, so every push to main failed with "Username and
+    # password required" — a permanent red teaches people to stop reading red.
+    #
+    # More importantly this workflow builds and pushes the WEB image as well.
+    # That is the runner-web flavour, the one that ships a browser binary and
+    # makes the 31 web-session executors actually runnable. Publishing it from
+    # this fork would hand out the exact build our own deployment rules forbid.
+    if: github.repository == 'diegosouzapw/OmniRoute'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
